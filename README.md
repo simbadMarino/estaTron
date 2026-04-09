@@ -79,7 +79,7 @@ substreams info bin/tron-foundational-v0.1.2.spkg
 
 - `**map_transactions`** - Extracts all non-failed transactions with full details
 - `**index_transactions`** - Creates searchable transaction indices
-- `**filtered_transactions**` - Filters transactions by type, contract, or other parameters
+- `**filtered_transactions`** - Filters transactions by type, contract, or other parameters
 
 ### **Historical Data Analysis**
 
