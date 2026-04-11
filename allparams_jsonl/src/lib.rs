@@ -33,7 +33,7 @@ fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::
             .map(|c| c.r#type.to_string())
             .unwrap_or_default();
 
-        let fee = tx.info
+        let total_fee_burn = tx.info
             .as_ref()
             .map(|i| i.fee)
             .unwrap_or(0);
@@ -66,19 +66,19 @@ fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::
             .map(|c| extract_owner_address(&c.parameter))
             .unwrap_or_default();
 
-        let energy_fee = tx.info
+        let energy_from_burn = tx.info
             .as_ref()
             .and_then(|i| i.receipt.as_ref())
             .map(|r| r.energy_fee)
             .unwrap_or(0);
         
-        let net_fee = tx.info
+        let net_from_burn = tx.info
             .as_ref()
             .and_then(|i| i.receipt.as_ref())
             .map(|r| r.net_fee)
             .unwrap_or(0);
         
-        let net_usage = tx.info
+        let net_from_stake = tx.info
             .as_ref()
             .and_then(|i| i.receipt.as_ref())
             .map(|r| r.net_usage)
@@ -88,15 +88,14 @@ fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::
 
             let line = format!(
                 //r#"{{"tx_id":"{}","contract_type":"{}","fee":{},"energy_usage_total":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{}}}"#,
-                r#"{{"tx_id":"{}","contract_type":"{}","fee":{},"energy_used":{},"energy_usage_total":{},"energy_fee":{},"net_fee":{},"net_usage":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{},"from":"{}"}}"#,
+                r#"{{"tx_id":"{}","contract_type":"{}","total_fee_burn":{},"energy_usage_total":{},"energy_from_stake":{},"net_from_burn":{},"net_from_stake":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{},"from":"{}"}}"#,
                 hex::encode(&tx.txid),
                 contract_type,
-                fee,
-                tx.energy_used,
+                total_fee_burn,
                 energy_usage_total,
-                energy_fee,
-                net_fee,
-                net_usage,
+                energy_from_burn,
+                net_from_burn,
+                net_from_stake,
                 block_number,
                 block_timestamp,
                 contract_address,
