@@ -81,15 +81,16 @@ substreams info bin/tron-foundational-v0.1.2.spkg
 - `**index_transactions`** - Creates searchable transaction indices
 - `**filtered_transactions`** - Filters transactions by type, contract, or other parameters
 
-### **Historical Data Analysis**
+### **Historical Data Analysis: JSONL Sink**
 
 ```bash
 # Analyze a specific date range (block start is specified in substreams.yaml config file)
 
 
-substreams-sink-files run accountperm-v0.1.0.spkg \
+substreams-sink-files run allparams-v0.1.0.spkg \
   map_my_data \
-   --encoder=lines \
+  --encoder=lines \
+  --e mainnet.tron.streamingfast.io:443 \
   --output-dir ./output \
   --state-store ./state.yaml \
   --file-block-count=28880
@@ -103,6 +104,47 @@ substreams-sink-files run accountperm-v0.1.0.spkg \
   --state-store ./state.yaml \
   --file-block-count=2592000
 ```
+
+
+### **Historical Data Analysis: Postgresql sink (Work in progress)**
+
+Pre-requirements:
+Install postgresql & substreams-sink-sql
+
+MacOS instructions:
+
+```bash
+brew install postgresql
+brew install streamingfast/tap/substreams-sink-sql
+```
+#### 1. Start postgresql services
+```bash
+ brew services start postgresql@18  #Assuming postgresql version 18 is installed
+ ```
+#### 2. Create the database
+```bash
+ psql postgres -c "CREATE DATABASE tron_all_contract_types;"
+ #Check your DB was created:
+ psql postgres -c "\l"
+ ```
+#### 3. Apply your schema
+```bash
+ psql -d tron_all_contract_types -f schema.sql
+ ```
+
+#### 4. Build your substreams
+```bash
+ substreams build
+ ```
+
+```bash
+substreams-sink-sql run \
+  "postgres://$(whoami):@localhost:5432/tron?sslmode=disable" \
+  "./substreams.yaml" \
+  map_my_data
+```
+
+
 
 ### Supported Contract Types in package:
 

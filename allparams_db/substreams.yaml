@@ -1,0 +1,42 @@
+specVersion: v0.1.0
+package:
+  name: allparams_db
+  version: v0.1.0
+  url: https://github.com/simbadmarino/estaTRon
+  description: Substreams module for all on TRON Mainnet
+
+imports:
+  tron: https://spkg.io/v1/packages/tron_foundational/v0.1.2
+
+protobuf:
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+  - name: map_my_filtered_transactions
+    use: tron:filtered_transactions
+
+  - name: db_out
+    kind: map
+    initialBlock: 7871320
+    inputs:
+      - map: map_my_filtered_transactions
+    output:
+      type: sf.substreams.sink.database.v1.DatabaseChanges
+
+network: tron
+
+params:
+  map_my_filtered_transactions: "contract_type:VoteWitnessContract || contract_type:WitnessCreateContract || contract_type:WitnessUpdateContract || contract_type:AccountUpdateContract || contract_type:FreezeBalanceContract || contract_type:UnfreezeBalanceContract || contract_type:WithdrawBalanceContract || contract_type:ProposalCreateContract || contract_type:ProposalApproveContract || contract_type:ProposalDeleteContract || contract_type:SetAccountIdContract || contract_type:CustomContract || contract_type:CreateSmartContract || contract_type:TriggerSmartContract || contract_type:UpdateSettingContract || contract_type:UpdateEnergyLimitContract || contract_type:AccountPermissionUpdateContract || contract_type:ClearABIContract || contract_type:UpdateBrokerageContract || contract_type:ShieldedTransferContract || contract_type:FreezeBalanceV2Contract || contract_type:UnfreezeBalanceV2Contract || contract_type:WithdrawExpireUnfreezeContract || contract_type:DelegateResourceContract || contract_type:UnDelegateResourceContract || contract_type:CancelAllUnfreezeV2Contract"
+
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: "./schema.sql"

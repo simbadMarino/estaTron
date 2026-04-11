@@ -1,0 +1,44 @@
+specVersion: v0.1.0
+package:
+  name: allparams
+  version: v0.1.0
+  url: https://github.com/simbadmarino/estaTRon
+  description: Substreams module for all on TRON Mainnet
+
+imports:
+  tron: https://spkg.io/v1/packages/tron_foundational/v0.1.2
+
+protobuf:
+  files:
+    - proto/lines.proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+  - name: map_my_filtered_transactions
+    use: tron:filtered_transactions
+
+  - name: map_my_data
+    kind: map
+    initialBlock: 7871320   #This block is coming from the implementation of multi-sig feature
+    #initialBlock: 70942240  #This block timestamp is 2025-04-01 04:00:54 (UTC), corresponding to Q2 2025 start
+    #initialBlock: 74242240   #This block timestamp is 2025-07-24 19:28:06 (UTC), just before proposal #104 took effect
+    inputs:
+      - map: map_my_filtered_transactions
+    output:
+      type: proto:sf.substreams.sink.files.v1.Lines
+
+network: tron
+
+params:
+  map_my_filtered_transactions: "contract_type:VoteWitnessContract || contract_type:WitnessCreateContract || contract_type:WitnessUpdateContract || contract_type:AccountUpdateContract || contract_type:FreezeBalanceContract || contract_type:UnfreezeBalanceContract || contract_type:WithdrawBalanceContract || contract_type:ProposalCreateContract || contract_type:ProposalApproveContract || contract_type:ProposalDeleteContract || contract_type:SetAccountIdContract || contract_type:CustomContract || contract_type:CreateSmartContract || contract_type:UpdateSettingContract || contract_type:UpdateEnergyLimitContract || contract_type:AccountPermissionUpdateContract || contract_type:ClearABIContract || contract_type:UpdateBrokerageContract || contract_type:ShieldedTransferContract || contract_type:FreezeBalanceV2Contract || contract_type:UnfreezeBalanceV2Contract || contract_type:WithdrawExpireUnfreezeContract || contract_type:DelegateResourceContract || contract_type:UnDelegateResourceContract || contract_type:CancelAllUnfreezeV2Contract"
+
+#ALL Contract Types including TriggerSmartContract, this will consume huge amount of EggressBytes, thus exceeding your Substreams quota easily, uncomment only when local firehouse endpoint is enabled.
+  #map_my_filtered_transactions: "contract_type:VoteWitnessContract || contract_type:WitnessCreateContract || contract_type:WitnessUpdateContract || contract_type:AccountUpdateContract || contract_type:FreezeBalanceContract || contract_type:UnfreezeBalanceContract || contract_type:WithdrawBalanceContract || contract_type:ProposalCreateContract || contract_type:ProposalApproveContract || contract_type:ProposalDeleteContract || contract_type:SetAccountIdContract || contract_type:CustomContract || contract_type:CreateSmartContract || contract_type:TriggerSmartContract || contract_type:UpdateSettingContract || contract_type:UpdateEnergyLimitContract || contract_type:AccountPermissionUpdateContract || contract_type:ClearABIContract || contract_type:UpdateBrokerageContract || contract_type:ShieldedTransferContract || contract_type:FreezeBalanceV2Contract || contract_type:UnfreezeBalanceV2Contract || contract_type:WithdrawExpireUnfreezeContract || contract_type:DelegateResourceContract || contract_type:UnDelegateResourceContract || contract_type:CancelAllUnfreezeV2Contract"
+

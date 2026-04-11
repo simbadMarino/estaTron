@@ -1,0 +1,25 @@
+[package]
+name = "estatron"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "substreams"
+crate-type = ["cdylib"]
+
+[dependencies]
+hex = "0.4"
+num-traits = "0.2.15"
+prost = "0.13"
+prost-types = "0.13"
+substreams = "0.7"
+substreams-database-change = "2"
+
+[build-dependencies]
+anyhow = "1"
+regex = "1.8"
+
+[profile.release]
+lto = true
+opt-level = 's'
+strip = "debuginfo"
