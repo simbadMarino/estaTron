@@ -1,9 +1,0 @@
-{
-  "generator": "tron-transactions",
-  "state": {
-    "name": "accountperm",
-    "chainName": "tron",
-    "substreamsSinkChoice": "parquet",
-    "filter": "contract_type:AccountPermissionUpdateContract"
-  }
-}
