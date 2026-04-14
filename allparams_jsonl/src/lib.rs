@@ -3,7 +3,19 @@ mod pb;
 
 use crate::pb::sf::substreams::sink::files::v1::Lines;
 use crate::pb::sf::substreams::tron::v1::Transactions;
+use crate::pb::protocol::AccountPermissionUpdateContract;
+use prost::Message;
 
+
+fn decode_permission_threshold(parameter: &Option<prost_types::Any>) -> String {
+    parameter.as_ref()
+        .and_then(|p| {
+            AccountPermissionUpdateContract::decode(p.value.as_slice()).ok()
+        })
+        .and_then(|c| c.owner)
+        .map(|p| p.threshold.to_string())
+        .unwrap_or_default()
+}
 
 fn extract_owner_address(parameter: &Option<prost_types::Any>) -> String {
     parameter.as_ref()
@@ -84,11 +96,19 @@ fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::
             .map(|r| r.net_usage)
             .unwrap_or(0);
 
-            
+        //  decode for AccountPermissionUpdateContract (type 46)
+        let permission_threshold = if contract_type == "46" {
+            tx.contracts
+                .first()
+                .map(|c| decode_permission_threshold(&c.parameter))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        }; 
 
             let line = format!(
                 //r#"{{"tx_id":"{}","contract_type":"{}","fee":{},"energy_usage_total":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{}}}"#,
-                r#"{{"tx_id":"{}","contract_type":"{}","total_fee_burn":{},"energy_usage_total":{},"energy_from_stake":{},"net_from_burn":{},"net_from_stake":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{},"from":"{}"}}"#,
+                r#"{{"tx_id":"{}","contract_type":"{}","total_fee_burn":{},"energy_usage_total":{},"energy_from_stake":{},"net_from_burn":{},"net_from_stake":{},"block_number":{},"block_timestamp":{},"contract_address":"{}","signature_count":{},"perm_threshold":"{}","from":"{}"}}"#,
                 hex::encode(&tx.txid),
                 contract_type,
                 total_fee_burn,
@@ -100,6 +120,7 @@ fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::
                 block_timestamp,
                 contract_address,
                 signature_count,
+                permission_threshold,
                 from_address
             );
 

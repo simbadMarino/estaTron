@@ -96,7 +96,7 @@ substreams-sink-files run allparams-v0.1.0.spkg \
   --file-block-count=28880
   
  #WORKING command , bundled by quarter per file
-  substreams-sink-files run accountperm-v0.1.0.spkg \
+  substreams-sink-files run allparams-v0.1.0.spkg \
   map_my_data \
   jsonl_out \
   --encoder=lines \
@@ -172,7 +172,7 @@ substreams-sink-sql run \
 | 19  | SetAccountIdContract            | Sets a human-readable account ID                     | Yes                |
 | 20  | CustomContract                  | Reserved for custom or undefined use                 | Yes                |
 | 30  | CreateSmartContract             | Deploys a smart contract                             | Yes                |
-| 31  | TriggerSmartContract            | Calls a deployed smart contract                      | Yes                |
+| 31  | TriggerSmartContract            | Calls a deployed smart contract                      | No                 |
 | 32  | GetContract                     | Queries smart contract information                   | No                 |
 | 33  | UpdateSettingContract           | Updates smart contract consume_user_resource_percent | Yes                |
 | 41  | ExchangeCreateContract          | Creates a token exchange pair                        | No                 |
