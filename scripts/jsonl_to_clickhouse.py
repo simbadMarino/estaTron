@@ -89,6 +89,8 @@ COLUMNS = [
     "from",
 ]
 
+# Contract_type Black List for the sake of filtering unwanted transactions from jsonl files
+EXCLUDED_CONTRACT_TYPES = {"57","58"}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -103,6 +105,9 @@ def parse_row(line: str, lineno: int, filepath: str):
         obj = json.loads(line)
     except json.JSONDecodeError as exc:
         log.warning("  Skipping malformed JSON at %s:%d — %s", filepath, lineno, exc)
+        return None
+
+    if obj.get("contract_type") in EXCLUDED_CONTRACT_TYPES:
         return None
 
     return tuple(obj.get(col, None) for col in COLUMNS)

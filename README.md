@@ -86,7 +86,7 @@ substreams info bin/tron-foundational-v0.1.2.spkg
 ```bash
 # Analyze a specific date range (block start is specified in substreams.yaml config file)
 
-
+#Split files by day
 substreams-sink-files run allparams-v0.1.0.spkg \
   map_my_data \
   --encoder=lines \
@@ -94,8 +94,15 @@ substreams-sink-files run allparams-v0.1.0.spkg \
   --output-dir ./output \
   --state-store ./state.yaml \
   --file-block-count=28880
+
+#Split files by month
+  substreams-sink-files run allparams-v0.1.0.spkg \               
+  map_my_data \  --encoder=lines \
+  --output-dir ./output \                 
+  --state-store ./state.yaml \
+  --file-block-count=866400
   
- #WORKING command , bundled by quarter per file
+ #Split files by quarter
   substreams-sink-files run allparams-v0.1.0.spkg \
   map_my_data \
   jsonl_out \
@@ -189,8 +196,131 @@ python jsonl_to_clickhouse.py \
   --create-table
 ```
 
+### **Example Queries**
+
+```SQL
+SELECT
+    contract_type,
+    count() AS txn_count,
+    toStartOfQuarter(toDateTime(block_timestamp / 1000)) AS quarter,
+    sum(total_fee_burn/1000000) AS total_fee
+FROM tron_account_perm_update.transactions
+GROUP BY
+    contract_type,
+    quarter
+ORDER BY
+    quarter,
+    total_fee DESC
+```
+
+```SQL
+SELECT
+    contract_type,
+    count() as txn_count,
+    min(block_number) AS start_block,
+    max(block_number) AS end_block,
+    concat(
+        toString(toYear(toDateTime(block_timestamp / 1000))),
+        '-Q',
+        toString(toQuarter(toDateTime(block_timestamp / 1000)))
+    ) AS quarter,
+    sum(total_fee_burn) AS total_fee
+FROM tron_account_perm_update.transactions
+GROUP BY contract_type, quarter
+ORDER BY quarter, total_fee DESC;
+```
+
+
+```SQL
+---Find duplicated txns (Approximation )
+SELECT
+    count() AS total_rows,
+    uniq(tx_id) AS unique_tx,
+    total_rows - unique_tx AS duplicate_rows
+FROM tron_account_perm_update.transactions;
+```
+```SQL
+--Find txn duplicates in between a block range
+SELECT
+    tx_id,
+    count()
+FROM tron_account_perm_update.transactions
+WHERE block_number BETWEEN 60818393 AND 68944620
+GROUP BY tx_id
+HAVING count() > 1;
+```
+### **Database backup**
+
+Make sure you have a propper strategy to perform backups, especially before a significant data sinking.
+
+
+1. Run a root shell:
+```bash
+sudo -i # macOS
+su #Linux
+```
+2. Navigate to clickhouse server path
+```bash
+cd /etc/clickhouse-server
+ls
+```
+
+You should see something like:
+```bash
+config.xml
+users.xml
+config.d/
+users.d/
+```
+
+3. configure your backup output:
+
+```bash
+sudo nano /etc/clickhouse-server/config.d/backup_disk.xml
+```
+
+```xml
+<clickhouse>
+  <storage_configuration>
+    <disks>
+      <backups>
+        <type>local</type>
+        <path>/Users/YOUR_USER/clickhouse_backups/</path>
+      </backups>
+    </disks>
+  </storage_configuration>
+
+  <backups>
+    <allowed_disk>backups</allowed_disk>
+    <allowed_path>/Users/YOUR_USER/clickhouse_backups/</allowed_path>
+  </backups>
+</clickhouse>
+```
+
+4. Restart your clickhouse server
+```bash
+sudo pkill clickhouse-server
+sudo clickhouse start
+```
+
+5. Run the backup action 
+
+```bash
+clickhouse-client --password --query "
+BACKUP DATABASE tron_account_perm_update
+TO Disk('backups', 'tron_backup_$(date +%F).zip')"
+```
+
+#### Restore DB from disk
+```bash
+clickhouse-client --password --query "RESTORE DATABASE my_db AS my_db_restored
+FROM File('/Users/YOUR_USER/clickhouse_backups/my_db_backup');"
+```
 
 ### Supported Contract Types in package:
+
+|compressed  | uncompressed | ratio |
+│ 66.80 GiB  │ 152.53 GiB   │  2.28 │
 
 
 | ID  | Contract Type                   | Description                                          | Include in Module? |
@@ -199,7 +329,7 @@ python jsonl_to_clickhouse.py \
 | 1   | TransferContract                | Transfers native TRX between accounts                | No                 |
 | 2   | TransferAssetContract           | Transfers TRC-10 tokens between accounts             | No                 |
 | 3   | VoteAssetContract               | Votes using TRC-10 assets (deprecated/rare)          | No                 |
-| 4   | VoteWitnessContract             | Votes for Super Representatives                      | Yes                |
+| 4   | VoteWitnessContract             | Votes for Super Representatives                      | Yes                |   
 | 5   | WitnessCreateContract           | Registers as a Super Representative candidate        | Yes                |
 | 6   | AssetIssueContract              | Creates (issues) a new TRC-10 token                  | No                 |
 | 8   | WitnessUpdateContract           | Updates Super Representative info                    | Yes                |
@@ -233,8 +363,8 @@ python jsonl_to_clickhouse.py \
 | 54  | FreezeBalanceV2Contract         | Freezes TRX (new resource model)                     | Yes                |
 | 55  | UnfreezeBalanceV2Contract       | Unfreezes TRX (new model)                            | Yes                |
 | 56  | WithdrawExpireUnfreezeContract  | Withdraws TRX after unfreeze period                  | Yes                |
-| 57  | DelegateResourceContract        | Delegates resources to another account               | Yes                |
-| 58  | UnDelegateResourceContract      | Removes delegated resources                          | Yes                |
+| 57  | DelegateResourceContract        | Delegates resources to another account               | No                |
+| 58  | UnDelegateResourceContract      | Removes delegated resources                          | No                |
 | 59  | CancelAllUnfreezeV2Contract     | Cancels all pending unfreeze operations              | Yes                |
 
 
