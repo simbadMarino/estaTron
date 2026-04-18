@@ -214,9 +214,10 @@ ORDER BY
 ```
 
 ```SQL
+--Gets trx burn and usage stats around AccountPermissionUpdate contract_type
 SELECT
     contract_type,
-    count() as txn_count,
+    count() AS txn_count,
     min(block_number) AS start_block,
     max(block_number) AS end_block,
     concat(
@@ -224,11 +225,27 @@ SELECT
         '-Q',
         toString(toQuarter(toDateTime(block_timestamp / 1000)))
     ) AS quarter,
-    sum(total_fee_burn) AS total_fee
+    sum(total_fee_burn/1000000) AS burned_TRX,
+    countIf(toInt32OrZero(perm_threshold) > 1) AS high_threshold_txn_count,
+    uniqExact(`from`) AS unique_from_addresses
 FROM tron_account_perm_update.transactions
-GROUP BY contract_type, quarter
-ORDER BY quarter, total_fee DESC;
+GROUP BY
+    contract_type,
+    quarter
+ORDER BY
+    quarter,
+    burned_TRX DESC;
 ```
+```SQL
+--Retrieves transactions table size
+SELECT
+    formatReadableSize(sum(data_compressed_bytes)) AS compressed,
+    formatReadableSize(sum(data_uncompressed_bytes)) AS uncompressed,
+    round(sum(data_uncompressed_bytes)/sum(data_compressed_bytes), 2) AS ratio
+FROM system.parts
+WHERE database = 'tron_account_perm_update'
+  AND table = 'transactions';
+  ```
 
 
 ```SQL
@@ -239,6 +256,8 @@ SELECT
     total_rows - unique_tx AS duplicate_rows
 FROM tron_account_perm_update.transactions;
 ```
+
+
 ```SQL
 --Find txn duplicates in between a block range
 SELECT
