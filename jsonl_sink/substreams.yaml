@@ -1,9 +1,9 @@
 specVersion: v0.1.0
 package:
-  name: allparams
+  name: jsonl_sink
   version: v0.1.0
   url: https://github.com/simbadmarino/estaTRon
-  description: Substreams module for all on TRON Mainnet
+  description: Jsonl transformation module for TRON Mainnet
 
 imports:
   tron: https://spkg.io/v1/packages/tron_foundational/v0.1.2
@@ -24,7 +24,7 @@ modules:
   - name: map_my_filtered_transactions
     use: tron:filtered_transactions
 
-  - name: map_my_data
+  - name: jsonl_mod
     kind: map
     initialBlock: 7871320   #This block is coming from the implementation of multi-sig feature
     #initialBlock: 70942240  #This block timestamp is 2025-04-01 04:00:54 (UTC), corresponding to Q2 2025 start
