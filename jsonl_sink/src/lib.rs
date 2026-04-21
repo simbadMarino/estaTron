@@ -36,7 +36,7 @@ fn extract_owner_address(parameter: &Option<prost_types::Any>) -> String {
 }
 
 #[substreams::handlers::map]
-fn map_my_data(transactions: Transactions) -> Result<Lines, substreams::errors::Error> {
+fn jsonl_mod(transactions: Transactions) -> Result<Lines, substreams::errors::Error> {
     let mut lines = vec![];
 
     for tx in transactions.transactions {

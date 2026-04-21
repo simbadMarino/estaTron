@@ -9,8 +9,7 @@ sink-data/
 output/
 localdata/
 
-# The spkg packed by the subtreams cli
-*.spkg
+
 
 #state yaml files
 state.yaml
