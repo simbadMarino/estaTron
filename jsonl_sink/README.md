@@ -1,36 +1,4 @@
-# JSONL Sink module
-
-### **Historical Data Analysis: JSONL Sink**
-
-```bash
-# Analyze a specific date range (block start is specified in substreams.yaml config file)
-
-#Split files by day
-substreams-sink-files run allparams-v0.1.0.spkg \
-  map_my_data \
-  --encoder=lines \
-  --e mainnet.tron.streamingfast.io:443 \
-  --output-dir ./output \
-  --state-store ./state.yaml \
-  --file-block-count=28880
-
-#Split files by month
-  substreams-sink-files run allparams-v0.1.0.spkg \               
-  map_my_data \  --encoder=lines \
-  --output-dir ./output \                 
-  --state-store ./state.yaml \
-  --file-block-count=866400
-  
- #Split files by quarter
-  substreams-sink-files run allparams-v0.1.0.spkg \
-  map_my_data \
-  jsonl_out \
-  --encoder=lines \
-  --output-dir ./output \
-  --state-store ./state.yaml \
-  --file-block-count=2592000
-```
-
+# JSONL Sink Optional transformation
 
 ### **Sink jsonl to clickhouse**
 
@@ -38,7 +6,7 @@ A script is available to sink jsonl to a clickhouse DB, reduce storage and enabl
 
 Quick Start:
 
-Install clickhouse:
+Install clickhouse (bare):
 
 ```bash
 curl https://clickhouse.com/ | sh
@@ -75,8 +43,12 @@ Execute script:
 python jsonl_to_clickhouse.py \
   --host localhost \
   --user default \
-  --password yourpassword \
-  --database tron_db \
+  --password your_clickhouse_password \
+  --database your_tron_db_name \
   --table transactions \
   --create-table
 ```
+
+Notes: 
+1. If your clickhouse server is running as a docker container you might need to configure the script port accordingly.
+2. Current instructions assumes clickhouse running locally to improve querying speed on MacOS. 

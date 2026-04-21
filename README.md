@@ -2,9 +2,9 @@
 
 ---
 
-TRON historical data , particularly related to transaction-type decomposition  is slow to extract directly from a TRON Fullnode and not fully available in TRON explorers, this repo closes this gap by providing ready-to-use Substream modules and TRON blockchain DB backups for efficient Data Analytics purposes.
+TRON historical data , particularly related to transaction-type decomposition  is slow to extract directly from a TRON Fullnode and not fully available in TRON explorers or Data platforms, this repo closes this gap by providing ready-to-use Substream modules and TRON blockchain DB backups for efficient Data Analytics purposes.
 
-This project explores a couple data output (sinks)configurations:
+This project explores a couple data output (sinks) configurations:
 
 - JSONL : Simple line based format, useful for relatively low transaction volume analysis.
 - Clickhouse DB: More complex, useful for large / full TRON data querying.
@@ -74,16 +74,106 @@ rustup target add wasm32-unknown-unknown
 
 
 
+## Project Structure 
+---
+```
+.
+├── README.md
+├── clickhouse_sink   # clickhouse DB Data sinking Substreams module
+│   ├── Cargo.lock
+│   ├── Cargo.toml    #Project deps, metadata and build settings
+│   ├── README.md     # clickhouse sinking and config specific guidelines 
+│   ├── buf.gen.yaml
+│   ├── localdata
+│   ├── output 
+│   ├── proto
+│   ├── replay.log
+│   ├── schema.sql    #Your clickhouse DB schema
+│   ├── src           #lib.rs home, data transformation and output config takes place here
+│   ├── substreams.yaml   #Substreams configuration file, defines your architecture, used for build process
+│   └── target
+├── jsonl_sink        # jsonl Data sinking Substreams module
+│   ├── Cargo.lock
+│   ├── Cargo.toml    #Project deps, metadata and build settings
+│   ├── README.md     # jsonl sinking and config specific guidelines 
+│   ├── buf.gen.yaml
+│   ├── jsonl-sink-v0.1.0.spkg    # pre-compiled data transformation substreams package 
+│   ├── localdata
+│   ├── output
+│   ├── proto
+│   ├── src           #lib.rs home, data transformation and output config takes place here
+│   ├── state.yaml
+│   ├── substreams.yaml   #Substreams configuration file, defines your architecture, used for build process
+│   └── target
+├── scripts
+│   ├── jsonl_to_clickhouse.py    # Python utility to sink jsonl files into clickhouse DB
+└── substream         # Official substream tron foundational package
+    ├── bin
+    └── output
+```
 
-### **Example Queries**
+--- 
+## JSONL Substream
+
+JSONL Sink module exports data as JSONL files based on ```src/lib.rs``` & ```substreams.yaml``` files filtering.
+
+For details, please refer to contract_types on [substreams.yaml](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/substreams.yaml#L40) and transaction fields on [src/lib.rs](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/src/lib.rs#L111)
+
+
+### Data sinking 
+
+```bash
+cd jsonl_sink
+```
+
+Start extracting data to output/ dir from block: ```--start-block``` to ```--stop-block```, with ```--file-block-count``` number of blocks per file.
+```state.yaml``` file stores latest received cursor, useful to recover from latest sinked block in case of network error.  
+
+```bash
+substreams-sink-files run jsonl-sink-v0.1.0.spkg \
+  jsonl_mod \
+  --encoder=lines \
+  --output-dir ./output \
+  --state-store ./state.yaml \  #
+  --start-block 81041850 \
+  --stop-block  81044000 \
+  --file-block-count=28880
+  ```
+
+You should start seeing jsonl files recorded in output/ folder after some time.
+
+Tips:
+
+```bash
+# Use the following file-block-count args depending on your data aggregation needs:
+# By day: 28880
+# By month: 866400
+# By Quarter: 2592000
+```
+#### Optional: Send jsonl to a clickhouse DB (Python script)
+
+```bash
+nano jsonl_sink/README.md
+```
+
+---
+
+## **Clickhouse DB Pipeline and Querying**
+
+The most efficient way to analyze the resulting data is trough clickhouse SQL queries. 
+
+Below some queries examples:
+
+Note: Make sure to adjust the database name per your own.
 
 ```SQL
 SELECT
+-- Gets trx burn stats by quarter
     contract_type,
     count() AS txn_count,
     toStartOfQuarter(toDateTime(block_timestamp / 1000)) AS quarter,
     sum(total_fee_burn/1000000) AS total_fee
-FROM tron_account_perm_update.transactions
+FROM tron_db.transactions
 GROUP BY
     contract_type,
     quarter
@@ -147,7 +237,7 @@ GROUP BY tx_id
 HAVING count() > 1;
 ```
 
-### **Database backup**
+### **Clickhouse Database backup**
 
 Make sure you have a propper strategy to perform backups, especially before a significant data sinking.
 
@@ -213,16 +303,16 @@ BACKUP DATABASE tron_account_perm_update
 TO Disk('backups', 'tron_backup_$(date +%F).zip')"
 ```
 
-#### Restore DB from disk
+### Restore DB from disk
 
 ```bash
 clickhouse-client --password --query "RESTORE DATABASE my_db AS my_db_restored
 FROM File('/Users/YOUR_USER/clickhouse_backups/my_db_backup');"
 ```
 
-### **📦 Substreams Package Management**
+## **📦 Substreams Package Management**
 
-#### **Update Pre-built Official TRON foundational Package**
+### **Update Pre-built Official TRON foundational Package**
 
 NOTICE: Only execute the following steps if an updated tron-foundational spkg is available, by default, the tron foundational package is included in `/substream`
 
@@ -243,11 +333,9 @@ substreams info bin/tron-foundational-v0.1.X.spkg
 - `**index_transactions`** - Creates searchable transaction indices
 - `**filtered_transactions`** - Filters transactions by type, contract, or other parameters
 
-### Supported Contract Types in package:
 
-|compressed  | uncompressed | ratio |
-│ 66.80 GiB  │ 152.53 GiB   │  2.28 │
 
+## Annex 1: Supported Contract Types in package:
 
 | ID  | Contract Type                   | Description                                          | Include in Module? |
 | --- | ------------------------------- | ---------------------------------------------------- | ------------------ |
@@ -293,4 +381,34 @@ substreams info bin/tron-foundational-v0.1.X.spkg
 | 58  | UnDelegateResourceContract      | Removes delegated resources                          | No                 |
 | 59  | CancelAllUnfreezeV2Contract     | Cancels all pending unfreeze operations              | Yes                |
 
-
+```
+TRON Starting block by quarter reference (WiP):
+  "2019-Q1 7200000"
+  "2019-Q2 9792000"
+  "2019-Q3 12384000"
+  "2019-Q4 14976000"
+  "2020-Q1 17568000"
+  "2020-Q2 20160000"
+  "2020-Q3 22752000"
+  "2020-Q4 25344000"
+  "2021-Q1 27936000"
+  "2021-Q2 30528000"
+  "2021-Q3 33120000"
+  "2021-Q4 35712000"
+  "2022-Q1 38304000"
+  "2022-Q2 40896000"
+  "2022-Q3 43488000"
+  "2022-Q4 46080000"
+  "2023-Q1 48672000"
+  "2023-Q2 51264000"
+  "2023-Q3 53856000"
+  "2023-Q4 56448000"
+  "2024-Q1 59040000"
+  "2024-Q2 61632000"
+  "2024-Q3 64224000"
+  "2024-Q4 66816000"
+  "2025-Q1 69408000"
+  "2025-Q2 72000000"
+  "2025-Q3 74592000"
+  "2025-Q4 77184000" 
+  ```

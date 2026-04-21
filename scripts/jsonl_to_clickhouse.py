@@ -166,7 +166,7 @@ def main():
     parser.add_argument("--table",        default="transactions",  help="Target table name")
     parser.add_argument("--batch-size",   default=200_000, type=int, help="Rows per insert batch")
     parser.add_argument("--create-table", action="store_true",    help="Auto-create table if missing")
-    parser.add_argument("--dir",          default="../allparams_jsonl/output",            help="Directory to scan for *.jsonl files (default: current dir)")
+    parser.add_argument("--dir",          default="../jsonl_sink/output",            help="Directory to scan for *.jsonl files")
     args = parser.parse_args()
 
     # --- Connect -----------------------------------------------------------

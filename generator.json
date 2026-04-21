@@ -1,7 +1,0 @@
-{
-  "generator": "tron-transactions",
-  "state": {
-    "name": "usefultxns",
-    "chainName": "tron"
-  }
-}
