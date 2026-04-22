@@ -1,16 +1,22 @@
 specVersion: v0.1.0
 package:
-  name: allparams_db
+  name: clickhouse-sink
   version: v0.1.0
   url: https://github.com/simbadmarino/estaTRon
-  description: Substreams module for all on TRON Mainnet
+  description: Substreams module for clickhouse direct sinking
 
 imports:
   tron: https://spkg.io/v1/packages/tron_foundational/v0.1.2
 
 protobuf:
+  files:
+    - proto/sf/substreams/sink/database/v1/database.proto
+  descriptorSets:
+    - module: buf.build/streamingfast/substreams-sink-sql
+      version: latest
+      symbols:
+        - sf.substreams.sink.sql.v1.Service
   excludePaths:
-    - sf/substreams
     - google
 
 binaries:
@@ -28,7 +34,7 @@ modules:
     inputs:
       - map: map_my_filtered_transactions
     output:
-      type: sf.substreams.sink.database.v1.DatabaseChanges
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 
 network: tron
 
@@ -40,3 +46,4 @@ sink:
   type: sf.substreams.sink.sql.v1.Service
   config:
     schema: "./schema.sql"
+    engine: clickhouse

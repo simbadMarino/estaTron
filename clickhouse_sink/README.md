@@ -1,46 +1,56 @@
 # Clickhouse sink module
+---
 
-### **Historical Data Analysis: Postgresql sink (Work in progress)**
+## **Historical Data Analysis: Clickhouse sink (Work in progress)**
+---
 
-Pre-requirements:
-Install postgresql & substreams-sink-sql
-
-MacOS instructions:
+### Pre-requirements:
+Install clickhouse & substreams-sink-sql
 
 ```bash
-brew install postgresql
 brew install streamingfast/tap/substreams-sink-sql
 ```
 
-#### 1. Start postgresql services
-
+Install clickhouse (bare):
+Optional: Run a clickhouse docker container instead
 ```bash
- brew services start postgresql@18  #Assuming postgresql version 18 is installed
+curl https://clickhouse.com/ | sh
+sudo ./clickhouse install
 ```
 
-#### 2. Create the database
+Start clickhouse server
 
 ```bash
- psql postgres -c "CREATE DATABASE tron_all_contract_types;"
- #Check your DB was created:
- psql postgres -c "\l"
+
+sudo clickhouse start 
 ```
 
-#### 3. Apply your schema
+Run clickhouse client:
+
+First time password creation:
 
 ```bash
- psql -d tron_all_contract_types -f schema.sql
+
+clickhouse-client --password 
+```
+---
+### Configure DB
+
+#### 1. Create the database
+
+```bash
+clickhouse-client --password --query "
+CREATE DATABASE IF NOT EXISTS tron"
 ```
 
-#### 4. Build your substreams
+#### 2. Create transactions TABLE in your DB
+
+```bash
+clickhouse-client --password < schema.sql
+```
+---
+### Setup Clickhouse sink substreams module
 
 ```bash
  substreams build
-```
-
-```bash
-substreams-sink-sql run \
-  "postgres://$(whoami):@localhost:5432/tron?sslmode=disable" \
-  "./substreams.yaml" \
-  map_my_data
 ```

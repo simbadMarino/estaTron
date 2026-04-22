@@ -12,7 +12,47 @@ pub mod protocol {
     // @@protoc_insertion_point(protocol)
 }
 pub mod sf {
+    // @@protoc_insertion_point(attribute:sf.substreams)
     pub mod substreams {
+        include!("sf.substreams.rs");
+        // @@protoc_insertion_point(sf.substreams)
+        pub mod index {
+            // @@protoc_insertion_point(attribute:sf.substreams.index.v1)
+            pub mod v1 {
+                include!("sf.substreams.index.v1.rs");
+                // @@protoc_insertion_point(sf.substreams.index.v1)
+            }
+        }
+        pub mod rpc {
+            // @@protoc_insertion_point(attribute:sf.substreams.rpc.v2)
+            pub mod v2 {
+                include!("sf.substreams.rpc.v2.rs");
+                // @@protoc_insertion_point(sf.substreams.rpc.v2)
+            }
+        }
+        pub mod sink {
+            pub mod database {
+                // @@protoc_insertion_point(attribute:sf.substreams.sink.database.v1)
+                pub mod v1 {
+                    include!("sf.substreams.sink.database.v1.rs");
+                    // @@protoc_insertion_point(sf.substreams.sink.database.v1)
+                }
+            }
+            pub mod service {
+                // @@protoc_insertion_point(attribute:sf.substreams.sink.service.v1)
+                pub mod v1 {
+                    include!("sf.substreams.sink.service.v1.rs");
+                    // @@protoc_insertion_point(sf.substreams.sink.service.v1)
+                }
+            }
+            pub mod sql {
+                // @@protoc_insertion_point(attribute:sf.substreams.sink.sql.v1)
+                pub mod v1 {
+                    include!("sf.substreams.sink.sql.v1.rs");
+                    // @@protoc_insertion_point(sf.substreams.sink.sql.v1)
+                }
+            }
+        }
         pub mod tron {
             // @@protoc_insertion_point(attribute:sf.substreams.tron.v1)
             pub mod v1 {
