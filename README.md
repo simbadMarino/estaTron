@@ -185,25 +185,42 @@ ORDER BY
 ```SQL
 --Gets trx burn and usage stats around AccountPermissionUpdate contract_type
 SELECT
-    contract_type,
-    count() AS txn_count,
-    min(block_number) AS start_block,
-    max(block_number) AS end_block,
-    concat(
-        toString(toYear(toDateTime(block_timestamp / 1000))),
-        '-Q',
-        toString(toQuarter(toDateTime(block_timestamp / 1000)))
-    ) AS quarter,
-    sum(total_fee_burn/1000000) AS burned_TRX,
-    countIf(toInt32OrZero(perm_threshold) > 1) AS high_threshold_txn_count,
-    uniqExact(`from`) AS unique_from_addresses
-FROM tron_account_perm_update.transactions
-GROUP BY
-    contract_type,
-    quarter
-ORDER BY
-    quarter,
-    burned_TRX DESC;
+  contract_type,
+  count() AS txn_count,
+  min(block_number) AS start_block,
+  max(block_number) AS end_block,
+  concat(
+    toString(toYear(fromUnixTimestamp64Milli(block_timestamp, 'UTC'))),
+    '-Q',
+    toString(toQuarter(fromUnixTimestamp64Milli(block_timestamp, 'UTC')))
+  ) AS quarter,
+  sum(total_fee_burn / 1000000.0) AS burned_TRX,
+  countIf(toInt32OrZero(perm_threshold) > 1) AS high_threshold_txn_count,
+  uniqExact(`from`) AS unique_from_addresses
+FROM tron.transactions
+GROUP BY contract_type, quarter
+ORDER BY quarter, burned_TRX DESC;
+```
+
+
+```SQL
+--Gets txn count, trx burn & multi-sign stats for each contract_type
+SELECT
+  contract_type,
+  count() AS txn_count,
+  min(block_number) AS start_block,
+  max(block_number) AS end_block,
+  concat(
+    toString(toYear(fromUnixTimestamp64Milli(block_timestamp, 'UTC'))),
+    '-Q',
+    toString(toQuarter(fromUnixTimestamp64Milli(block_timestamp, 'UTC')))
+  ) AS quarter,
+  sum(total_fee_burn / 1000000.0) AS burned_TRX,
+  countIf(signature_count > 1) AS multisign_count,
+  uniqExact(`from`) AS unique_from_addresses
+FROM tron.transactions
+GROUP BY contract_type, quarter
+ORDER BY quarter, burned_TRX DESC;
 ```
 
 ```SQL
@@ -213,7 +230,7 @@ SELECT
     formatReadableSize(sum(data_uncompressed_bytes)) AS uncompressed,
     round(sum(data_uncompressed_bytes)/sum(data_compressed_bytes), 2) AS ratio
 FROM system.parts
-WHERE database = 'tron_account_perm_update'
+WHERE database = 'tron'
   AND table = 'transactions';
 ```
 
@@ -408,7 +425,7 @@ TRON Starting block by quarter reference (WiP):
   "2024-Q3 64224000"
   "2024-Q4 66816000"
   "2025-Q1 69408000"
-  "2025-Q2 72000000"
+  "2025-Q2 70937500" OK 
   "2025-Q3 74592000"
   "2025-Q4 77184000" 
   ```

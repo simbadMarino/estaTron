@@ -1,7 +1,9 @@
 #[allow(unused)]
 mod pb;
 
-use crate::pb::protocol::AccountPermissionUpdateContract;
+use crate::pb::protocol::{
+    AccountPermissionUpdateContract, TransferContract, TriggerSmartContract,
+};
 use crate::pb::sf::substreams::tron::v1::Transactions;
 use prost::Message;
 use substreams_database_change::pb::database::DatabaseChanges;
@@ -35,6 +37,32 @@ fn extract_owner_address(parameter: &Option<prost_types::Any>) -> String {
         .unwrap_or_default()
 }
 
+
+/// Minimum native TRX transfer amount to retain (1 TRX = 1_000_000 sun).
+const MIN_TRANSFER_SUN: i64 = 100; // 0.0001 TRX
+
+fn transfer_amount_sun(parameter: &Option<prost_types::Any>) -> Option<i64> {
+    parameter.as_ref().and_then(|p| {
+        TransferContract::decode(p.value.as_slice())
+            .ok()
+            .map(|c| c.amount)
+    })
+}
+
+fn decode_trigger_method_id(parameter: &Option<prost_types::Any>) -> String {
+    parameter
+        .as_ref()
+        .and_then(|p| TriggerSmartContract::decode(p.value.as_slice()).ok())
+        .and_then(|c| {
+            if c.data.len() >= 4 {
+                Some(hex::encode(&c.data[0..4]))
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default()
+}
+
 #[substreams::handlers::map]
 fn db_out(transactions: Transactions) -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut tables = Tables::new();
@@ -45,6 +73,18 @@ fn db_out(transactions: Transactions) -> Result<DatabaseChanges, substreams::err
             .first()
             .map(|c| c.r#type.to_string())
             .unwrap_or_default();
+
+        if contract_type == "1" {
+            if let Some(amt) = tx
+                .contracts
+                .first()
+                .and_then(|c| transfer_amount_sun(&c.parameter))
+            {
+                if amt < MIN_TRANSFER_SUN {
+                    continue;
+                }
+            }
+        }
 
         let total_fee_burn = tx
             .info
@@ -115,6 +155,16 @@ fn db_out(transactions: Transactions) -> Result<DatabaseChanges, substreams::err
             String::new()
         };
 
+        // TriggerSmartContract: only store 4-byte selector (method_id), not full calldata.
+        let method_id = if contract_type == "31" {
+            tx.contracts
+                .first()
+                .map(|c| decode_trigger_method_id(&c.parameter))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
         let tx_id = hex::encode(&tx.txid);
 
         tables
@@ -131,6 +181,7 @@ fn db_out(transactions: Transactions) -> Result<DatabaseChanges, substreams::err
             .set("contract_address", contract_address)
             .set("signature_count", signature_count)
             .set("perm_threshold", permission_threshold)
+            .set("method_id", method_id)
             .set("from", from_address);
     }
 

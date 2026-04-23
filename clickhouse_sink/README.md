@@ -61,14 +61,31 @@ export CLICKHOUSE_DSN='clickhouse://default:your_clickhouse-client_password@loca
 CLickhouse DB "RESET" (DROP DB and Schema import):
 
 ```bash
+cd clickouse_sink   ##cd into clickhouse_sink dir
 clickhouse-client --password --query "DROP TABLE IF EXISTS tron.transactions"
-clickhouse-client --password < clickhouse_sink/schema.sql
+clickhouse-client --password < schema.sql
 ```
 then setup again:
 
 ```bash
 substreams-sink-sql setup "$CLICKHOUSE_DSN" clickhouse-sink-v0.1.0.spkg
 ```
+
+TROUBLESHOOTING:
+
+If you face an error like this: ERRO (sink-sql) unable to retrieve cursor: cursor module hash mismatch, refusing to continue because flag '--on-module-hash-mismatch=error' (defaults) is set, you can change to 'warn' or 'ignore' after a module upgrade, and if cursor is stil at 0 (meaning you still didnt sink any significant data) you can reset sink state by:
+
+```bash
+clickhouse-client --password --query "TRUNCATE TABLE tron.cursors;"
+clickhouse-client --password --query "TRUNCATE TABLE tron.substreams_history;"
+```
+
+
+Run your substream and start sinking to your DB:
+
+```bash
+# The command starts sinking your filtered data from block 70937500, sinks 7220 which accounts about 1/4 of a day for data egress estimation purposes, adjust starting block and end block as needed.
+substreams-sink-sql run "$CLICKHOUSE_DSN" ./clickhouse-sink-v0.1.0.spkg 70937500:+7220 -e mainnet.tron.streamingfast.io:443 --undo-buffer-size 50```
 
 | ID  | Contract Type                   | Description                                          | Enabled in Module? |
 | --- | ------------------------------- | ---------------------------------------------------- | ------------------ |

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS tron.transactions
     contract_address String,
     signature_count UInt8,
     perm_threshold String,
+    method_id String,
     `from` String
 )
 ENGINE = ReplacingMergeTree(block_timestamp)
