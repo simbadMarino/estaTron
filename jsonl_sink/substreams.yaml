@@ -26,7 +26,8 @@ modules:
 
   - name: jsonl_mod
     kind: map
-    initialBlock: 7871320   #This block is coming from the implementation of multi-sig feature
+    #initialBlock: 7871320   #This block is coming from the implementation of multi-sig feature
+    initialBlock: 59040000 #Local firehose config first streamable block
     #initialBlock: 70942240  #This block timestamp is 2025-04-01 04:00:54 (UTC), corresponding to Q2 2025 start
     #initialBlock: 74242240   #This block timestamp is 2025-07-24 19:28:06 (UTC), just before proposal #104 took effect
     inputs:

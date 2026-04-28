@@ -6,8 +6,8 @@ TRON historical data , particularly related to transaction-type decomposition  i
 
 This project explores a couple data output (sinks) configurations:
 
-- JSONL : Simple line based format, useful for relatively low transaction volume analysis.
-- Clickhouse DB: More complex, useful for large / full TRON data querying.
+- JSONL : Simple line based format, useful for relatively low transaction volume analysis in plain text.
+- Clickhouse DB: More complex, useful for large / full TRON Blockchain data querying.
 
 ---
 
@@ -72,10 +72,9 @@ Ensure you have the wasm32-unknown-unknown target installed on your Rust install
 rustup target add wasm32-unknown-unknown
 ```
 
-
+---
 
 ## Project Structure 
----
 ```
 .
 ├── README.md
@@ -99,7 +98,7 @@ rustup target add wasm32-unknown-unknown
 │   ├── buf.gen.yaml
 │   ├── jsonl-sink-v0.1.0.spkg    # pre-compiled data transformation substreams package 
 │   ├── localdata
-│   ├── output
+│   ├── output        # default jsonl files output dir 
 │   ├── proto
 │   ├── src           #lib.rs home, data transformation and output config takes place here
 │   ├── state.yaml
@@ -113,21 +112,27 @@ rustup target add wasm32-unknown-unknown
 ```
 
 --- 
-## JSONL Substream
+## **Substreams: Sink Files (jsonl)**
 
-JSONL Sink module exports data as JSONL files based on ```src/lib.rs``` & ```substreams.yaml``` files filtering.
+The JSONL Sink prebuild module exports data as JSONL files based on ```src/lib.rs``` & ```substreams.yaml``` fields and contract_type filtering.
 
-For details, please refer to contract_types on [substreams.yaml](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/substreams.yaml#L40) and transaction fields on [src/lib.rs](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/src/lib.rs#L111)
+- For details on contract_types refer to: [substreams.yaml](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/substreams.yaml#L40)  
+- For details ontransaction fields refer to: [src/lib.rs](https://github.com/simbadMarino/estaTron/blob/main/jsonl_sink/src/lib.rs#L111)
 
 
-### Data sinking 
+### Getting Started
 
+1. Clone this repo 
+```bash
+git clone https://github.com/simbadMarino/estaTron.git
+```
+2. Navigate to json_sink subproject
 ```bash
 cd jsonl_sink
 ```
 
 Start extracting data to output/ dir from block: ```--start-block``` to ```--stop-block```, with ```--file-block-count``` number of blocks per file.
-```state.yaml``` file stores latest received cursor, useful to recover from latest sinked block in case of network error.  
+```state.yaml``` file stores cursor state, useful to recover from latest sinked block in case of network error.  
 
 ```bash
 substreams-sink-files run jsonl-sink-v0.1.0.spkg \
@@ -150,15 +155,140 @@ Tips:
 # By month: 866400
 # By Quarter: 2592000
 ```
-#### Optional: Send jsonl to a clickhouse DB (Python script)
+#### Optional: Sink jsonl into a clickhouse DB (Python script)
 
+For details please refer to the detailed guideline below:
 ```bash
 nano jsonl_sink/README.md
 ```
 
 ---
+## **Substreams: Sink to Clockhouse DB**
 
-## **Clickhouse DB Pipeline and Querying**
+### Pre-requirements:
+Install clickhouse & substreams-sink-sql
+
+```bash
+brew install streamingfast/tap/substreams-sink-sql
+```
+
+#### Install clickhouse (bare):
+Optional: Run a clickhouse [docker container](https://github.com/streamingfast/substreams-sink-sql#prerequisites) instead.
+```bash
+curl https://clickhouse.com/ | sh
+sudo ./clickhouse install
+```
+
+#### Start clickhouse server
+
+```bash
+sudo clickhouse start 
+```
+
+#### Run clickhouse client:
+
+##### First time password creation:
+
+```bash
+clickhouse-client --password 
+```
+---
+### Configure DB
+
+#### 1. Create the database
+
+```bash
+clickhouse-client --password --query "
+CREATE DATABASE IF NOT EXISTS tron"
+```
+
+#### 2. Create transactions TABLE from schema
+
+```bash
+clickhouse-client --password < schema.sql
+```
+
+#### 3. Setup DSN (Data Source Name) EnvVar
+```bash
+export CLICKHOUSE_DSN='clickhouse://default:your_clickhouse-client_password@localhost:9000/tron'
+```
+
+#### 4. Setup DB
+
+```bash
+substreams-sink-sql setup "$CLICKHOUSE_DSN" clickhouse-sink-v0.1.0.spkg
+```
+
+### Run the Substream
+
+Run your substream and start sinking to your DB:
+
+```bash
+# The command starts sinking your filtered data from block 70937500, sinks 7220 (which accounts about 1/4 of a day), adjust starting block and end block as needed.
+substreams-sink-sql run "$CLICKHOUSE_DSN" ./clickhouse-sink-v0.1.0.spkg 70937500:+7220 -e mainnet.tron.streamingfast.io:443 --undo-buffer-size 50
+```
+
+
+
+---
+## **Customizing your Substream module**
+For additional data transformations in your module proceed as below:
+
+### Step 1: Adjust substreams.yaml , lib.rs or schema.sql as needed.
+
+### Step 2: Build your new package once ready:
+
+
+```bash
+ substreams build
+```
+
+### Step 3: Adjust your DB if needed
+For any fields changes consider updating your DB and TABLES. 
+
+#### CLickhouse DB "RESET" (DROP DB and Schema import):
+
+```bash
+cd clickouse_sink   ##cd into clickhouse_sink dir
+clickhouse-client --password --query "DROP TABLE IF EXISTS tron.transactions"
+clickhouse-client --password < schema.sql
+```
+#### Substreams sink sql Setup:
+
+```bash
+substreams-sink-sql setup "$CLICKHOUSE_DSN" clickhouse-sink-v0.1.0.spkg
+```
+
+For advanced clickhouse DB management, please refer to clickhouse [docs](https://clickhouse.com/docs/updating-data)
+
+---
+
+## TROUBLESHOOTING:
+```bash
+ERRO (sink-sql) unable to retrieve cursor: cursor module hash mismatch, refusing to continue because flag '--on-module-hash-mismatch=error' (defaults) is set, you can change to 'warn' or 'ignore' after a module upgrade, and if cursor is stil at 0 (meaning you still didnt sink any significant data) you can reset sink state by:
+```
+Solution: TRUNCATE (delete all rows) from cursors TABLE
+
+```bash
+clickhouse-client --password --query "TRUNCATE TABLE tron.cursors;"
+clickhouse-client --password --query "TRUNCATE TABLE tron.substreams_history;"
+```
+---
+
+```bash
+ERRO (sink-sql) unable to setup sql sinker: load tables: retrieving table and schemaName: getting tables from schema: querying tables from system.tables: dial tcp [::1]:9000: connect: connection refused
+```
+Solution: Make sure your clickhouse server is running and password was properly configured during CLICKHOUSE_DSN envar setting.
+
+---
+```bash
+ERRO (sink-sql) stream auth failure: rpc error: code = Unauthenticated desc = required authorization token not found. Please provide a valid JWT token via 'authorization' header or an API key via 'x-api-key' header
+```
+Solution: When using streamingfast substreams endpoint, make sure you authenticate as described in the ```Getting Started``` section
+
+---
+
+## **Clickhouse DB Querying**
 
 The most efficient way to analyze the resulting data is trough clickhouse SQL queries. 
 
@@ -173,7 +303,7 @@ SELECT
     count() AS txn_count,
     toStartOfQuarter(toDateTime(block_timestamp / 1000)) AS quarter,
     sum(total_fee_burn/1000000) AS total_fee
-FROM tron_db.transactions
+FROM tron.transactions
 GROUP BY
     contract_type,
     quarter
@@ -254,9 +384,11 @@ GROUP BY tx_id
 HAVING count() > 1;
 ```
 
-### **Clickhouse Database backup**
+## **Clickhouse Database backup**
 
 Make sure you have a propper strategy to perform backups, especially before a significant data sinking.
+
+Bare metal server guide:
 
 1. Run a root shell:
 
@@ -265,7 +397,7 @@ sudo -i # macOS
 su #Linux
 ```
 
-1. Navigate to clickhouse server path
+2. Navigate to clickhouse server path
 
 ```bash
 cd /etc/clickhouse-server
@@ -281,7 +413,7 @@ config.d/
 users.d/
 ```
 
-1. configure your backup output:
+3. configure your backup output:
 
 ```bash
 sudo nano /etc/clickhouse-server/config.d/backup_disk.xml
@@ -293,26 +425,26 @@ sudo nano /etc/clickhouse-server/config.d/backup_disk.xml
     <disks>
       <backups>
         <type>local</type>
-        <path>/Users/YOUR_USER/clickhouse_backups/</path>
+        <path>/path/to_your/clickhouse_backups/</path>
       </backups>
     </disks>
   </storage_configuration>
 
   <backups>
     <allowed_disk>backups</allowed_disk>
-    <allowed_path>/Users/YOUR_USER/clickhouse_backups/</allowed_path>
+    <allowed_path>/path/to_your/clickhouse_backups/</allowed_path>
   </backups>
 </clickhouse>
 ```
 
-1. Restart your clickhouse server
+4. Restart your clickhouse server
 
 ```bash
 sudo pkill clickhouse-server
 sudo clickhouse start
 ```
 
-1. Run the backup action
+5. Run the backup action
 
 ```bash
 clickhouse-client --password --query "
@@ -344,88 +476,84 @@ substreams pack tron-foundational@v0.1.X -o bin/tron-foundational-v0.1.X.spkg
 substreams info bin/tron-foundational-v0.1.X.spkg
 ```
 
-**Package Contents:**
+---
 
-- `**map_transactions`** - Extracts all non-failed transactions with full details
-- `**index_transactions`** - Creates searchable transaction indices
-- `**filtered_transactions`** - Filters transactions by type, contract, or other parameters
+## Annex 1: TRON Transaction Type Reference:
 
+| ID  | Contract Type                   | Description                                          | 
+| --- | ------------------------------- | ---------------------------------------------------- | 
+| 0   | AccountCreateContract           | Creates a new account on the network                 | 
+| 1   | TransferContract                | Transfers native TRX between accounts                |
+| 2   | TransferAssetContract           | Transfers TRC-10 tokens between accounts             |
+| 3   | VoteAssetContract               | Votes using TRC-10 assets (deprecated/rare)          |
+| 4   | VoteWitnessContract             | Votes for Super Representatives                      |
+| 5   | WitnessCreateContract           | Registers as a Super Representative candidate        |
+| 6   | AssetIssueContract              | Creates (issues) a new TRC-10 token                  |
+| 8   | WitnessUpdateContract           | Updates Super Representative info                    |
+| 9   | ParticipateAssetIssueContract   | Participates in a TRC-10 token sale                  |
+| 10  | AccountUpdateContract           | Updates account name or metadata                     |
+| 11  | FreezeBalanceContract           | Freezes TRX for resources or voting power            |
+| 12  | UnfreezeBalanceContract         | Unfreezes previously frozen TRX                      |
+| 13  | WithdrawBalanceContract         | Withdraws SR block rewards                           |
+| 14  | UnfreezeAssetContract           | Unfreezes TRC-10 tokens                              |
+| 15  | UpdateAssetContract             | Updates TRC-10 token parameters                      |
+| 16  | ProposalCreateContract          | Creates a governance proposal                        |
+| 17  | ProposalApproveContract         | Approves a governance proposal                       |
+| 18  | ProposalDeleteContract          | Deletes a proposal                                   |
+| 19  | SetAccountIdContract            | Sets a human-readable account ID                     |
+| 20  | CustomContract                  | Reserved for custom or undefined use                 |
+| 30  | CreateSmartContract             | Deploys a smart contract                             |
+| 31  | TriggerSmartContract            | Calls a deployed smart contract                      |
+| 32  | GetContract                     | Queries smart contract information                   |
+| 33  | UpdateSettingContract           | Updates smart contract consume_user_resource_percent |
+| 41  | ExchangeCreateContract          | Creates a token exchange pair                        |
+| 42  | ExchangeInjectContract          | Adds liquidity to an exchange                        |
+| 43  | ExchangeWithdrawContract        | Removes liquidity from an exchange                   |
+| 44  | ExchangeTransactionContract     | Executes a token swap                                |
+| 45  | UpdateEnergyLimitContract       | Updates contract origin_energy_limit                 |
+| 46  | AccountPermissionUpdateContract | Updates account permissions (multi-signature)        |
+| 48  | ClearABIContract                | Removes a contract’s ABI                             |
+| 49  | UpdateBrokerageContract         | Updates SR brokerage ratio                           |
+| 51  | ShieldedTransferContract        | Performs a private transfer                          |
+| 52  | MarketSellAssetContract         | Places a sell order (TRC10)                          |
+| 53  | MarketCancelOrderContract       | Cancels a market order (TRC10)                       |
+| 54  | FreezeBalanceV2Contract         | Freezes TRX (new resource model)                     |
+| 55  | UnfreezeBalanceV2Contract       | Unfreezes TRX (new model)                            |
+| 56  | WithdrawExpireUnfreezeContract  | Withdraws TRX after unfreeze period                  |
+| 57  | DelegateResourceContract        | Delegates resources to another account               |
+| 58  | UnDelegateResourceContract      | Removes delegated resources                          |
+| 59  | CancelAllUnfreezeV2Contract     | Cancels all pending unfreeze operations              
 
+## Annex 2: TRON Block number-quarter equivalence table
 
-## Annex 1: Supported Contract Types in package:
-
-| ID  | Contract Type                   | Description                                          | Include in Module? |
-| --- | ------------------------------- | ---------------------------------------------------- | ------------------ |
-| 0   | AccountCreateContract           | Creates a new account on the network                 | No                 |
-| 1   | TransferContract                | Transfers native TRX between accounts                | No                 |
-| 2   | TransferAssetContract           | Transfers TRC-10 tokens between accounts             | No                 |
-| 3   | VoteAssetContract               | Votes using TRC-10 assets (deprecated/rare)          | No                 |
-| 4   | VoteWitnessContract             | Votes for Super Representatives                      | Yes                |
-| 5   | WitnessCreateContract           | Registers as a Super Representative candidate        | Yes                |
-| 6   | AssetIssueContract              | Creates (issues) a new TRC-10 token                  | No                 |
-| 8   | WitnessUpdateContract           | Updates Super Representative info                    | Yes                |
-| 9   | ParticipateAssetIssueContract   | Participates in a TRC-10 token sale                  | No                 |
-| 10  | AccountUpdateContract           | Updates account name or metadata                     | Yes                |
-| 11  | FreezeBalanceContract           | Freezes TRX for resources or voting power            | Yes                |
-| 12  | UnfreezeBalanceContract         | Unfreezes previously frozen TRX                      | Yes                |
-| 13  | WithdrawBalanceContract         | Withdraws SR block rewards                           | Yes                |
-| 14  | UnfreezeAssetContract           | Unfreezes TRC-10 tokens                              | No                 |
-| 15  | UpdateAssetContract             | Updates TRC-10 token parameters                      | No                 |
-| 16  | ProposalCreateContract          | Creates a governance proposal                        | Yes                |
-| 17  | ProposalApproveContract         | Approves a governance proposal                       | Yes                |
-| 18  | ProposalDeleteContract          | Deletes a proposal                                   | Yes                |
-| 19  | SetAccountIdContract            | Sets a human-readable account ID                     | Yes                |
-| 20  | CustomContract                  | Reserved for custom or undefined use                 | Yes                |
-| 30  | CreateSmartContract             | Deploys a smart contract                             | Yes                |
-| 31  | TriggerSmartContract            | Calls a deployed smart contract                      | No                 |
-| 32  | GetContract                     | Queries smart contract information                   | No                 |
-| 33  | UpdateSettingContract           | Updates smart contract consume_user_resource_percent | Yes                |
-| 41  | ExchangeCreateContract          | Creates a token exchange pair                        | No                 |
-| 42  | ExchangeInjectContract          | Adds liquidity to an exchange                        | No                 |
-| 43  | ExchangeWithdrawContract        | Removes liquidity from an exchange                   | No                 |
-| 44  | ExchangeTransactionContract     | Executes a token swap                                | No                 |
-| 45  | UpdateEnergyLimitContract       | Updates contract origin_energy_limit                 | Yes                |
-| 46  | AccountPermissionUpdateContract | Updates account permissions (multi-signature)        | Yes                |
-| 48  | ClearABIContract                | Removes a contract’s ABI                             | Yes                |
-| 49  | UpdateBrokerageContract         | Updates SR brokerage ratio                           | Yes                |
-| 51  | ShieldedTransferContract        | Performs a private transfer                          | Yes                |
-| 52  | MarketSellAssetContract         | Places a sell order (TRC10)                          | No                 |
-| 53  | MarketCancelOrderContract       | Cancels a market order (TRC10)                       | No                 |
-| 54  | FreezeBalanceV2Contract         | Freezes TRX (new resource model)                     | Yes                |
-| 55  | UnfreezeBalanceV2Contract       | Unfreezes TRX (new model)                            | Yes                |
-| 56  | WithdrawExpireUnfreezeContract  | Withdraws TRX after unfreeze period                  | Yes                |
-| 57  | DelegateResourceContract        | Delegates resources to another account               | No                 |
-| 58  | UnDelegateResourceContract      | Removes delegated resources                          | No                 |
-| 59  | CancelAllUnfreezeV2Contract     | Cancels all pending unfreeze operations              | Yes                |
-
+```bash
+TRON Starting block by quarter (Approximate):
+2019-Q1	5416000
+2019-Q2	8000000
+2019-Q3	10613000
+2019-Q4	13254000
+2020-Q1	15896000
+2020-Q2	18509000
+2020-Q3	21121000
+2020-Q4	23763000
+2021-Q1	26405000
+2021-Q2	28989000
+2021-Q3	31601000
+2021-Q4	34243000
+2022-Q1	36885000
+2022-Q2	39469000
+2022-Q3	42081000
+2022-Q4	44723000
+2023-Q1	47365000
+2023-Q2	49949000
+2023-Q3	52562000
+2023-Q4	55203000
+2024-Q1	57845000
+2024-Q2	60457000
+2024-Q3	63070000
+2024-Q4	65712000
+2025-Q1	68353000
+2025-Q2	70937500
+2025-Q3	73550000
+2025-Q4	76192000
 ```
-TRON Starting block by quarter reference (WiP):
-  "2019-Q1 7200000"
-  "2019-Q2 9792000"
-  "2019-Q3 12384000"
-  "2019-Q4 14976000"
-  "2020-Q1 17568000"
-  "2020-Q2 20160000"
-  "2020-Q3 22752000"
-  "2020-Q4 25344000"
-  "2021-Q1 27936000"
-  "2021-Q2 30528000"
-  "2021-Q3 33120000"
-  "2021-Q4 35712000"
-  "2022-Q1 38304000"
-  "2022-Q2 40896000"
-  "2022-Q3 43488000"
-  "2022-Q4 46080000"
-  "2023-Q1 48672000"
-  "2023-Q2 51264000"
-  "2023-Q3 53856000"
-  "2023-Q4 56448000"
-  "2024-Q1 59040000"
-  "2024-Q2 61632000"
-  "2024-Q3 64224000"
-  "2024-Q4 66816000"
-  "2025-Q1 69408000"
-  "2025-Q2 70937500" OK 
-  "2025-Q3 74592000"
-  "2025-Q4 77184000" 
-  ```
